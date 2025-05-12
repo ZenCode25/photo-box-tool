@@ -11,7 +11,6 @@
       text-align: center;
       padding: 20px;
       background: #f0f0f0;
-      margin: 0;
     }
 
     #cameraInput {
@@ -30,12 +29,17 @@
     }
 
     #frameBox {
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      width: 400px;
+      height: 500px;
       margin: 20px auto;
+      padding: 20px;
       background: transparent;
       box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      position: relative;
     }
 
     .circle-container {
@@ -43,10 +47,9 @@
       height: 350px;
       border-radius: 50%;
       overflow: hidden;
-      background: #ddd; /* Light grey placeholder */
+      background: #000; /* Black placeholder background */
       position: relative;
       touch-action: none;
-      margin: auto;
     }
 
     .circle-container img {
@@ -67,6 +70,7 @@
       display: flex;
       justify-content: space-between;
       gap: 10px;
+      flex-wrap: nowrap;
       max-width: 400px;
       margin: 0 auto 20px auto;
     }
@@ -74,13 +78,6 @@
     .zoom-controls button {
       flex: 1;
       min-width: 0;
-    }
-
-    @media (max-width: 400px) {
-      .circle-container {
-        width: 300px;
-        height: 300px;
-      }
     }
   </style>
 </head>
@@ -109,7 +106,6 @@
     const cameraInput = document.getElementById('cameraInput');
     const photo = document.getElementById('photo');
     const downloadBtn = document.getElementById('downloadBtn');
-    const circleContainer = document.getElementById('circleContainer');
 
     let isDragging = false;
     let startX, startY;
@@ -119,18 +115,6 @@
 
     function applyTransform() {
       photo.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
-    }
-
-    function clampPosition() {
-      const imgWidth = photo.naturalWidth * scale;
-      const imgHeight = photo.naturalHeight * scale;
-      const containerSize = circleContainer.offsetWidth;
-
-      const maxOffsetX = (imgWidth - containerSize) / 2;
-      const maxOffsetY = (imgHeight - containerSize) / 2;
-
-      currentX = Math.min(Math.max(currentX, -maxOffsetX), maxOffsetX);
-      currentY = Math.min(Math.max(currentY, -maxOffsetY), maxOffsetY);
     }
 
     cameraInput.addEventListener('change', function () {
@@ -173,7 +157,6 @@
       currentX += dx;
       currentY += dy;
 
-      clampPosition();
       applyTransform();
 
       startX = x;
@@ -186,14 +169,12 @@
 
     function zoomIn() {
       scale += scaleStep;
-      clampPosition();
       applyTransform();
     }
 
     function zoomOut() {
       scale -= scaleStep;
-      if (scale < 0.1) scale = 0.1; // Avoid complete shrink
-      clampPosition();
+      if (scale < 0.1) scale = 0.1; // Prevent image from disappearing
       applyTransform();
     }
 
@@ -207,30 +188,21 @@
     document.addEventListener('touchend', dragEnd);
 
     downloadBtn.addEventListener('click', function () {
-      const size = circleContainer.offsetWidth;
+      const frame = document.getElementById("frameBox");
+      const rect = frame.getBoundingClientRect();
 
-      // Create a canvas and draw cropped circle
-      html2canvas(circleContainer, {
+      html2canvas(frame, {
         useCORS: true,
         backgroundColor: null,
-        width: size,
-        height: size,
-        scale: 2,
+        scale: 1,
+        width: rect.width,
+        height: rect.height,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: document.documentElement.clientHeight
       }).then(canvas => {
-        // Make circular crop
-        const outputCanvas = document.createElement('canvas');
-        outputCanvas.width = size;
-        outputCanvas.height = size;
-        const ctx = outputCanvas.getContext('2d');
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(canvas, 0, 0);
-        ctx.restore();
-
-        outputCanvas.toBlob(function(blob) {
+        canvas.toBlob(function(blob) {
           const link = document.createElement('a');
           link.download = "circular-photo.png";
           link.href = URL.createObjectURL(blob);
