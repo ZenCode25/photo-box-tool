@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Interactive Circular Photo</title>
+  <title>Interactive Circular Photo with Zoom</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     body {
@@ -29,14 +29,14 @@
     }
 
     .circle-container {
-      width: 250px;
-      height: 250px;
+      width: 400px;
+      height: 400px;
       border-radius: 50%;
       overflow: hidden;
       background: #eee;
       position: relative;
       margin: 20px auto;
-      touch-action: none; /* for mobile drag */
+      touch-action: none; /* Prevent pinch interference */
     }
 
     .circle-container img {
@@ -45,6 +45,7 @@
       left: 0;
       cursor: grab;
       user-select: none;
+      will-change: transform;
     }
 
     #downloadBtn:disabled {
@@ -55,7 +56,7 @@
 </head>
 <body>
 
-  <h2>Take a Circular Photo (Drag to Adjust)</h2>
+  <h2>Take a Circular Photo (Drag + Zoom to Adjust)</h2>
 
   <label for="cameraInput">Open Camera</label>
   <input type="file" accept="image/*" capture="environment" id="cameraInput">
@@ -69,14 +70,37 @@
   <script>
     const cameraInput = document.getElementById('cameraInput');
     const photo = document.getElementById('photo');
-    const downloadBtn = document.getElementById('downloadBtn');
     const container = document.getElementById('circleContainer');
+    const downloadBtn = document.getElementById('downloadBtn');
 
-    let isDragging = false;
-    let startX, startY;
     let currentX = 0, currentY = 0;
-    let containerRect, photoWidth, photoHeight;
+    let scale = 1;
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialDistance = 0;
+    let lastTouchScale = 1;
 
+    // Set default transform
+    function updateTransform() {
+      photo.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
+    }
+
+    // Reset position and size on photo load
+    function resetImagePosition() {
+      const containerSize = container.getBoundingClientRect();
+      const photoWidth = containerSize.width * 2;
+      const photoHeight = photo.naturalHeight / photo.naturalWidth * photoWidth;
+
+      photo.style.width = `${photoWidth}px`;
+      photo.style.height = `${photoHeight}px`;
+
+      currentX = (containerSize.width - photoWidth) / 2;
+      currentY = (containerSize.height - photoHeight) / 2;
+      scale = 1;
+      updateTransform();
+    }
+
+    // Load photo
     cameraInput.addEventListener('change', function () {
       const file = this.files[0];
       if (file) {
@@ -92,64 +116,73 @@
       }
     });
 
-    function resetImagePosition() {
-      containerRect = container.getBoundingClientRect();
-      photoWidth = container.offsetWidth * 2; // make image bigger than container
-      photoHeight = photo.naturalHeight / photo.naturalWidth * photoWidth;
-
-      photo.style.width = photoWidth + 'px';
-      photo.style.height = photoHeight + 'px';
-
-      currentX = (container.offsetWidth - photoWidth) / 2;
-      currentY = (container.offsetHeight - photoHeight) / 2;
-
-      photo.style.transform = `translate(${currentX}px, ${currentY}px)`;
-    }
-
+    // Drag start
     function dragStart(e) {
       isDragging = true;
-      startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-      startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+      const point = e.type === 'touchstart' ? e.touches[0] : e;
+      startX = point.clientX;
+      startY = point.clientY;
+
+      if (e.touches && e.touches.length === 2) {
+        isDragging = false;
+        initialDistance = getDistance(e.touches[0], e.touches[1]);
+        lastTouchScale = scale;
+      }
     }
 
+    // Drag move or pinch zoom
     function dragMove(e) {
+      if (e.touches && e.touches.length === 2) {
+        const newDistance = getDistance(e.touches[0], e.touches[1]);
+        const zoom = newDistance / initialDistance;
+        scale = Math.max(0.5, Math.min(3, lastTouchScale * zoom));
+        updateTransform();
+        e.preventDefault();
+        return;
+      }
+
       if (!isDragging) return;
 
-      const x = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-      const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-      const dx = x - startX;
-      const dy = y - startY;
-
-      const maxX = 0;
-      const maxY = 0;
-      const minX = container.offsetWidth - photoWidth;
-      const minY = container.offsetHeight - photoHeight;
-
-      currentX = Math.min(maxX, Math.max(minX, currentX + dx));
-      currentY = Math.min(maxY, Math.max(minY, currentY + dy));
-
-      photo.style.transform = `translate(${currentX}px, ${currentY}px)`;
-
-      startX = x;
-      startY = y;
+      const point = e.type === 'touchmove' ? e.touches[0] : e;
+      const dx = point.clientX - startX;
+      const dy = point.clientY - startY;
+      currentX += dx;
+      currentY += dy;
+      startX = point.clientX;
+      startY = point.clientY;
+      updateTransform();
+      e.preventDefault();
     }
 
     function dragEnd() {
       isDragging = false;
     }
 
+    function getDistance(touch1, touch2) {
+      const dx = touch1.clientX - touch2.clientX;
+      const dy = touch1.clientY - touch2.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Mouse wheel zoom
+    container.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      const delta = -e.deltaY;
+      const zoomFactor = delta > 0 ? 1.05 : 0.95;
+      scale = Math.max(0.5, Math.min(3, scale * zoomFactor));
+      updateTransform();
+    });
+
     // Event Listeners
     photo.addEventListener('mousedown', dragStart);
-    photo.addEventListener('touchstart', dragStart, { passive: false });
-
     document.addEventListener('mousemove', dragMove);
-    document.addEventListener('touchmove', dragMove, { passive: false });
-
     document.addEventListener('mouseup', dragEnd);
+
+    photo.addEventListener('touchstart', dragStart, { passive: false });
+    document.addEventListener('touchmove', dragMove, { passive: false });
     document.addEventListener('touchend', dragEnd);
 
-    // Download functionality
+    // Download button
     downloadBtn.addEventListener('click', function () {
       html2canvas(container, {
         backgroundColor: null
