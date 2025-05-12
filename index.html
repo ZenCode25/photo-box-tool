@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Interactive Circular Photo with Crop Preview</title>
+  <title>Interactive Circular Photo</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
@@ -36,7 +36,6 @@
       margin: 20px auto;
       background: transparent;
       box-shadow: none;
-      position: relative;
     }
 
     .circle-container {
@@ -44,7 +43,7 @@
       height: 350px;
       border-radius: 50%;
       overflow: hidden;
-      background: #ddd;
+      background: #ddd; /* Light grey placeholder */
       position: relative;
       touch-action: none;
       margin: auto;
@@ -57,15 +56,6 @@
       cursor: grab;
       user-select: none;
       transform: translate(0px, 0px) scale(1);
-    }
-
-    .circle-outline {
-      pointer-events: none;
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.8) inset;
     }
 
     #downloadBtn:disabled {
@@ -104,7 +94,6 @@
   <div id="frameBox">
     <div class="circle-container" id="circleContainer">
       <img id="photo" src="" alt="Photo will appear here">
-      <div class="circle-outline"></div>
     </div>
   </div>
 
@@ -203,7 +192,7 @@
 
     function zoomOut() {
       scale -= scaleStep;
-      if (scale < 0.1) scale = 0.1;
+      if (scale < 0.1) scale = 0.1; // Avoid complete shrink
       clampPosition();
       applyTransform();
     }
@@ -220,14 +209,15 @@
     downloadBtn.addEventListener('click', function () {
       const size = circleContainer.offsetWidth;
 
+      // Create a canvas and draw cropped circle
       html2canvas(circleContainer, {
         useCORS: true,
         backgroundColor: null,
         width: size,
         height: size,
         scale: 2,
-        ignoreElements: (element) => element.classList.contains('circle-outline')
       }).then(canvas => {
+        // Make circular crop
         const outputCanvas = document.createElement('canvas');
         outputCanvas.width = size;
         outputCanvas.height = size;
