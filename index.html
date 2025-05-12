@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Interactive Circular Photo</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: sans-serif;
@@ -17,35 +18,34 @@
     }
 
     label, button {
-      display: inline-block;
-      margin: 10px;
-      padding: 10px 20px;
+      padding: 10px 16px;
       font-size: 16px;
       background-color: #0078D7;
       color: white;
       border: none;
       border-radius: 5px;
       cursor: pointer;
+      white-space: nowrap;
     }
 
     #frameBox {
-      width: 800px;
-      height: 800px;
+      width: 400px;
+      height: 500px;
       margin: 20px auto;
       padding: 20px;
-      background: #ffffff;
+      background: transparent;
+      box-shadow: none;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
       box-sizing: border-box;
       position: relative;
     }
 
     .circle-container {
-      width: 600px;
-      height: 600px;
-      border-radius: 5%;
+      width: 350px;
+      height: 350px;
+      border-radius: 50%;
       overflow: hidden;
       background: #eee;
       position: relative;
@@ -69,13 +69,15 @@
     .zoom-controls {
       display: flex;
       justify-content: space-between;
-      gap: 20px;
+      gap: 10px;
+      flex-wrap: nowrap;
       max-width: 400px;
       margin: 0 auto 20px auto;
     }
 
     .zoom-controls button {
       flex: 1;
+      min-width: 0;
     }
   </style>
 </head>
@@ -104,7 +106,6 @@
     const cameraInput = document.getElementById('cameraInput');
     const photo = document.getElementById('photo');
     const downloadBtn = document.getElementById('downloadBtn');
-    const circleContainer = document.getElementById('circleContainer');
 
     let isDragging = false;
     let startX, startY;
@@ -140,10 +141,6 @@
       applyTransform();
     }
 
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
-
     function dragStart(e) {
       e.preventDefault();
       isDragging = true;
@@ -153,7 +150,6 @@
 
     function dragMove(e) {
       if (!isDragging) return;
-
       const x = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
       const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
 
