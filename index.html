@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Interactive Circular Photo with Zoom</title>
+  <title>Interactive Circular Photo</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     body {
@@ -28,15 +28,28 @@
       cursor: pointer;
     }
 
-    .circle-container {
+    #frameBox {
       width: 400px;
-      height: 400px;
+      height: 500px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    .circle-container {
+      width: 350px;
+      height: 350px;
       border-radius: 50%;
       overflow: hidden;
       background: #eee;
       position: relative;
-      margin: 20px auto;
-      touch-action: none; /* Prevent pinch interference */
+      touch-action: none;
     }
 
     .circle-container img {
@@ -45,7 +58,7 @@
       left: 0;
       cursor: grab;
       user-select: none;
-      will-change: transform;
+      transform: translate(0px, 0px) scale(1);
     }
 
     #downloadBtn:disabled {
@@ -56,13 +69,21 @@
 </head>
 <body>
 
-  <h2>Take a Circular Photo (Drag + Zoom to Adjust)</h2>
+  <h2>Take a Circular Photo (Drag & Zoom to Adjust)</h2>
 
   <label for="cameraInput">Open Camera</label>
   <input type="file" accept="image/*" capture="environment" id="cameraInput">
 
-  <div class="circle-container" id="circleContainer">
-    <img id="photo" src="" alt="Photo will appear here">
+  <div id="frameBox">
+    <div class="circle-container" id="circleContainer">
+      <img id="photo" src="" alt="Photo will appear here">
+    </div>
+  </div>
+
+  <div>
+    <button onclick="zoomIn()">➕ Zoom In</button>
+    <button onclick="zoomOut()">➖ Zoom Out</button>
+    <button onclick="resetImage()">🔄 Reset</button>
   </div>
 
   <button id="downloadBtn" disabled>Download Image</button>
@@ -70,37 +91,21 @@
   <script>
     const cameraInput = document.getElementById('cameraInput');
     const photo = document.getElementById('photo');
-    const container = document.getElementById('circleContainer');
     const downloadBtn = document.getElementById('downloadBtn');
+    const circleContainer = document.getElementById('circleContainer');
 
+    let isDragging = false;
+    let startX, startY;
     let currentX = 0, currentY = 0;
     let scale = 1;
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let initialDistance = 0;
-    let lastTouchScale = 1;
+    const scaleStep = 0.1;
+    const maxScale = 2.5;
+    const minScale = 0.5;
 
-    // Set default transform
-    function updateTransform() {
+    function applyTransform() {
       photo.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
     }
 
-    // Reset position and size on photo load
-    function resetImagePosition() {
-      const containerSize = container.getBoundingClientRect();
-      const photoWidth = containerSize.width * 2;
-      const photoHeight = photo.naturalHeight / photo.naturalWidth * photoWidth;
-
-      photo.style.width = `${photoWidth}px`;
-      photo.style.height = `${photoHeight}px`;
-
-      currentX = (containerSize.width - photoWidth) / 2;
-      currentY = (containerSize.height - photoHeight) / 2;
-      scale = 1;
-      updateTransform();
-    }
-
-    // Load photo
     cameraInput.addEventListener('change', function () {
       const file = this.files[0];
       if (file) {
@@ -108,7 +113,7 @@
         reader.onload = function (e) {
           photo.onload = () => {
             downloadBtn.disabled = false;
-            resetImagePosition();
+            resetImage();
           };
           photo.src = e.target.result;
         };
@@ -116,76 +121,80 @@
       }
     });
 
-    // Drag start
-    function dragStart(e) {
-      isDragging = true;
-      const point = e.type === 'touchstart' ? e.touches[0] : e;
-      startX = point.clientX;
-      startY = point.clientY;
-
-      if (e.touches && e.touches.length === 2) {
-        isDragging = false;
-        initialDistance = getDistance(e.touches[0], e.touches[1]);
-        lastTouchScale = scale;
-      }
+    function resetImage() {
+      currentX = 0;
+      currentY = 0;
+      scale = 1;
+      applyTransform();
     }
 
-    // Drag move or pinch zoom
-    function dragMove(e) {
-      if (e.touches && e.touches.length === 2) {
-        const newDistance = getDistance(e.touches[0], e.touches[1]);
-        const zoom = newDistance / initialDistance;
-        scale = Math.max(0.5, Math.min(3, lastTouchScale * zoom));
-        updateTransform();
-        e.preventDefault();
-        return;
-      }
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
 
+    function dragStart(e) {
+      e.preventDefault();
+      isDragging = true;
+      startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+      startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+    }
+
+    function dragMove(e) {
       if (!isDragging) return;
 
-      const point = e.type === 'touchmove' ? e.touches[0] : e;
-      const dx = point.clientX - startX;
-      const dy = point.clientY - startY;
+      const x = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+      const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+      const dx = x - startX;
+      const dy = y - startY;
+
       currentX += dx;
       currentY += dy;
-      startX = point.clientX;
-      startY = point.clientY;
-      updateTransform();
-      e.preventDefault();
+
+      applyTransform();
+
+      startX = x;
+      startY = y;
     }
 
     function dragEnd() {
       isDragging = false;
     }
 
-    function getDistance(touch1, touch2) {
-      const dx = touch1.clientX - touch2.clientX;
-      const dy = touch1.clientY - touch2.clientY;
-      return Math.sqrt(dx * dx + dy * dy);
+    function zoomIn() {
+      scale = Math.min(maxScale, scale + scaleStep);
+      applyTransform();
     }
 
-    // Mouse wheel zoom
-    container.addEventListener('wheel', function (e) {
-      e.preventDefault();
-      const delta = -e.deltaY;
-      const zoomFactor = delta > 0 ? 1.05 : 0.95;
-      scale = Math.max(0.5, Math.min(3, scale * zoomFactor));
-      updateTransform();
-    });
+    function zoomOut() {
+      scale = Math.max(minScale, scale - scaleStep);
+      applyTransform();
+    }
 
-    // Event Listeners
     photo.addEventListener('mousedown', dragStart);
-    document.addEventListener('mousemove', dragMove);
-    document.addEventListener('mouseup', dragEnd);
-
     photo.addEventListener('touchstart', dragStart, { passive: false });
+
+    document.addEventListener('mousemove', dragMove);
     document.addEventListener('touchmove', dragMove, { passive: false });
+
+    document.addEventListener('mouseup', dragEnd);
     document.addEventListener('touchend', dragEnd);
 
-    // Download button
+    // Download logic
     downloadBtn.addEventListener('click', function () {
-      html2canvas(container, {
-        backgroundColor: null
+      const frame = document.getElementById("frameBox");
+      const rect = frame.getBoundingClientRect();
+
+      html2canvas(frame, {
+        useCORS: true,
+        backgroundColor: null,
+        scale: 1,
+        width: rect.width,
+        height: rect.height,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: document.documentElement.clientHeight
       }).then(canvas => {
         canvas.toBlob(function(blob) {
           const link = document.createElement('a');
