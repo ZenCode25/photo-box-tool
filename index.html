@@ -178,19 +178,28 @@
 
     // Download
     downloadBtn.addEventListener('click', function () {
-      html2canvas(document.querySelector("#frameBox"), {
-        useCORS: true,
-        backgroundColor: null,
-        scale: window.devicePixelRatio || 2
-      }).then(canvas => {
-        canvas.toBlob(function(blob) {
-          const link = document.createElement('a');
-          link.download = "circular-photo.png";
-          link.href = URL.createObjectURL(blob);
-          link.click();
-        });
-      });
+  const frame = document.getElementById("frameBox");
+  const rect = frame.getBoundingClientRect();
+
+  html2canvas(frame, {
+    useCORS: true,
+    backgroundColor: null,
+    scale: 1,
+    width: rect.width,
+    height: rect.height,
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: document.documentElement.clientWidth,
+    windowHeight: document.documentElement.clientHeight
+  }).then(canvas => {
+    canvas.toBlob(function(blob) {
+      const link = document.createElement('a');
+      link.download = "circular-photo.png";
+      link.href = URL.createObjectURL(blob);
+      link.click();
     });
+  });
+});
   </script>
 
 </body>
