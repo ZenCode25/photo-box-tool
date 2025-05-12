@@ -47,7 +47,7 @@
       height: 350px;
       border-radius: 50%;
       overflow: hidden;
-      background: #eee;
+      background: #000; /* Black placeholder background */
       position: relative;
       touch-action: none;
     }
@@ -112,8 +112,6 @@
     let currentX = 0, currentY = 0;
     let scale = 1;
     const scaleStep = 0.1;
-    const maxScale = 2.5;
-    const minScale = 0.5;
 
     function applyTransform() {
       photo.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
@@ -170,12 +168,13 @@
     }
 
     function zoomIn() {
-      scale = Math.min(maxScale, scale + scaleStep);
+      scale += scaleStep;
       applyTransform();
     }
 
     function zoomOut() {
-      scale = Math.max(minScale, scale - scaleStep);
+      scale -= scaleStep;
+      if (scale < 0.1) scale = 0.1; // Prevent image from disappearing
       applyTransform();
     }
 
