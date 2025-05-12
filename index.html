@@ -47,4 +47,175 @@
       height: 350px;
       border-radius: 50%;
       overflow: hidden;
-      background: #
+      background: #eee;
+      position: relative;
+      touch-action: none;
+    }
+
+    .circle-container img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      cursor: grab;
+      user-select: none;
+      transform: translate(0px, 0px) scale(1);
+    }
+
+    #downloadBtn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .zoom-controls {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      max-width: 400px;
+      margin: 0 auto 20px auto;
+    }
+
+    .zoom-controls button {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Take a Circular Photo (Drag & Zoom to Adjust)</h2>
+
+  <label for="cameraInput">Open Camera</label>
+  <input type="file" accept="image/*" capture="environment" id="cameraInput">
+
+  <div id="frameBox">
+    <div class="circle-container" id="circleContainer">
+      <img id="photo" src="" alt="Photo will appear here">
+    </div>
+  </div>
+
+  <div class="zoom-controls">
+    <button onclick="zoomOut()">Zoom Out</button>
+    <button onclick="zoomIn()">Zoom In</button>
+    <button onclick="resetImage()">Reset</button>
+  </div>
+
+  <button id="downloadBtn" disabled>Download Image</button>
+
+  <script>
+    const cameraInput = document.getElementById('cameraInput');
+    const photo = document.getElementById('photo');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const circleContainer = document.getElementById('circleContainer');
+
+    let isDragging = false;
+    let startX, startY;
+    let currentX = 0, currentY = 0;
+    let scale = 1;
+    const scaleStep = 0.1;
+    const maxScale = 2.5;
+    const minScale = 0.5;
+
+    function applyTransform() {
+      photo.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
+    }
+
+    cameraInput.addEventListener('change', function () {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          photo.onload = () => {
+            downloadBtn.disabled = false;
+            resetImage();
+          };
+          photo.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function resetImage() {
+      currentX = 0;
+      currentY = 0;
+      scale = 1;
+      applyTransform();
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function dragStart(e) {
+      e.preventDefault();
+      isDragging = true;
+      startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+      startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+    }
+
+    function dragMove(e) {
+      if (!isDragging) return;
+
+      const x = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+      const y = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+      const dx = x - startX;
+      const dy = y - startY;
+
+      currentX += dx;
+      currentY += dy;
+
+      applyTransform();
+
+      startX = x;
+      startY = y;
+    }
+
+    function dragEnd() {
+      isDragging = false;
+    }
+
+    function zoomIn() {
+      scale = Math.min(maxScale, scale + scaleStep);
+      applyTransform();
+    }
+
+    function zoomOut() {
+      scale = Math.max(minScale, scale - scaleStep);
+      applyTransform();
+    }
+
+    photo.addEventListener('mousedown', dragStart);
+    photo.addEventListener('touchstart', dragStart, { passive: false });
+
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('touchmove', dragMove, { passive: false });
+
+    document.addEventListener('mouseup', dragEnd);
+    document.addEventListener('touchend', dragEnd);
+
+    downloadBtn.addEventListener('click', function () {
+      const frame = document.getElementById("frameBox");
+      const rect = frame.getBoundingClientRect();
+
+      html2canvas(frame, {
+        useCORS: true,
+        backgroundColor: null,
+        scale: 1,
+        width: rect.width,
+        height: rect.height,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: document.documentElement.clientHeight
+      }).then(canvas => {
+        canvas.toBlob(function(blob) {
+          const link = document.createElement('a');
+          link.download = "circular-photo.png";
+          link.href = URL.createObjectURL(blob);
+          link.click();
+        });
+      });
+    });
+  </script>
+
+</body>
+</html>
