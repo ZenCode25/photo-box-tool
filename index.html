@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Interactive Circular Photo</title>
+  <title>Interactive Circular Photo with Crop Preview</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
@@ -11,6 +11,7 @@
       text-align: center;
       padding: 20px;
       background: #f0f0f0;
+      margin: 0;
     }
 
     #cameraInput {
@@ -29,16 +30,12 @@
     }
 
     #frameBox {
-      width: 400px;
-      height: 500px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       margin: 20px auto;
-      padding: 20px;
       background: transparent;
       box-shadow: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-sizing: border-box;
       position: relative;
     }
 
@@ -47,9 +44,10 @@
       height: 350px;
       border-radius: 50%;
       overflow: hidden;
-      background: #000; /* Black placeholder background */
+      background: #ddd;
       position: relative;
       touch-action: none;
+      margin: auto;
     }
 
     .circle-container img {
@@ -61,6 +59,15 @@
       transform: translate(0px, 0px) scale(1);
     }
 
+    .circle-outline {
+      pointer-events: none;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.8) inset;
+    }
+
     #downloadBtn:disabled {
       background-color: #ccc;
       cursor: not-allowed;
@@ -70,7 +77,6 @@
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      flex-wrap: nowrap;
       max-width: 400px;
       margin: 0 auto 20px auto;
     }
@@ -78,6 +84,13 @@
     .zoom-controls button {
       flex: 1;
       min-width: 0;
+    }
+
+    @media (max-width: 400px) {
+      .circle-container {
+        width: 300px;
+        height: 300px;
+      }
     }
   </style>
 </head>
@@ -91,6 +104,7 @@
   <div id="frameBox">
     <div class="circle-container" id="circleContainer">
       <img id="photo" src="" alt="Photo will appear here">
+      <div class="circle-outline"></div>
     </div>
   </div>
 
@@ -106,6 +120,7 @@
     const cameraInput = document.getElementById('cameraInput');
     const photo = document.getElementById('photo');
     const downloadBtn = document.getElementById('downloadBtn');
+    const circleContainer = document.getElementById('circleContainer');
 
     let isDragging = false;
     let startX, startY;
@@ -115,6 +130,18 @@
 
     function applyTransform() {
       photo.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
+    }
+
+    function clampPosition() {
+      const imgWidth = photo.naturalWidth * scale;
+      const imgHeight = photo.naturalHeight * scale;
+      const containerSize = circleContainer.offsetWidth;
+
+      const maxOffsetX = (imgWidth - containerSize) / 2;
+      const maxOffsetY = (imgHeight - containerSize) / 2;
+
+      currentX = Math.min(Math.max(currentX, -maxOffsetX), maxOffsetX);
+      currentY = Math.min(Math.max(currentY, -maxOffsetY), maxOffsetY);
     }
 
     cameraInput.addEventListener('change', function () {
@@ -157,6 +184,7 @@
       currentX += dx;
       currentY += dy;
 
+      clampPosition();
       applyTransform();
 
       startX = x;
@@ -169,12 +197,14 @@
 
     function zoomIn() {
       scale += scaleStep;
+      clampPosition();
       applyTransform();
     }
 
     function zoomOut() {
       scale -= scaleStep;
-      if (scale < 0.1) scale = 0.1; // Prevent image from disappearing
+      if (scale < 0.1) scale = 0.1;
+      clampPosition();
       applyTransform();
     }
 
@@ -188,21 +218,29 @@
     document.addEventListener('touchend', dragEnd);
 
     downloadBtn.addEventListener('click', function () {
-      const frame = document.getElementById("frameBox");
-      const rect = frame.getBoundingClientRect();
+      const size = circleContainer.offsetWidth;
 
-      html2canvas(frame, {
+      html2canvas(circleContainer, {
         useCORS: true,
         backgroundColor: null,
-        scale: 1,
-        width: rect.width,
-        height: rect.height,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: document.documentElement.clientWidth,
-        windowHeight: document.documentElement.clientHeight
+        width: size,
+        height: size,
+        scale: 2,
+        ignoreElements: (element) => element.classList.contains('circle-outline')
       }).then(canvas => {
-        canvas.toBlob(function(blob) {
+        const outputCanvas = document.createElement('canvas');
+        outputCanvas.width = size;
+        outputCanvas.height = size;
+        const ctx = outputCanvas.getContext('2d');
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(canvas, 0, 0);
+        ctx.restore();
+
+        outputCanvas.toBlob(function(blob) {
           const link = document.createElement('a');
           link.download = "circular-photo.png";
           link.href = URL.createObjectURL(blob);
